@@ -1,6 +1,9 @@
-package nl.graaf.randstadrunners;
+package nl.graaf.randstadrunners.view;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Menu;
@@ -9,7 +12,6 @@ import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Button;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -18,40 +20,48 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONObject;
 
+import nl.graaf.randstadrunners.R;
 import nl.graaf.randstadrunners.models.Constants;
 
 
 public class SplashScreen extends Activity implements View.OnClickListener{
 
-    private Button button;
     private WebView webView;
-    private final static String CALLBACK_URL = "nl.graaf.randstadrunners://RunKeeperIsCallingBack";
+    private final static String CALLBACK_URL = "http://google.com";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        //Force to login on every launch.
-        CookieManager cookieManager = CookieManager.getInstance();
-        cookieManager.removeAllCookie();
+        SharedPreferences sharedPref =getPreferences(Context.MODE_PRIVATE);
+        String accessToken = sharedPref.getString(getString(R.string.access_token_key), "");
 
-        button = (Button) findViewById(R.id.button);
-        webView = (WebView) findViewById(R.id.webView);
-        //This is important. JavaScript is disabled by default. Enable it.
-        webView.getSettings().setJavaScriptEnabled(true);
+        if(accessToken.equals("")){
+            //Force to login on every launch.
+            CookieManager cookieManager = CookieManager.getInstance();
+            cookieManager.removeAllCookie();
+
+            webView = (WebView) findViewById(R.id.webView);
+            //This is important. JavaScript is disabled by default. Enable it.
+            webView.getSettings().setJavaScriptEnabled(true);
+
+            getAuthorizationCode();
+        }else{
+            Intent i = new Intent(this, DashboardDrawerActivity.class);
+            startActivity(i);
+        }
     }
 
     @Override
     public void onClick(View v) {
-        button.setVisibility(View.GONE);
         webView.setVisibility(View.VISIBLE);
 
         getAuthorizationCode();
     }
 
     private void getAuthorizationCode() {
-        String authorizationUrl = "https://runkeeper.com/apps/authorize?response_type=code&client_id=%s&redirect_uri=%s";
+        String authorizationUrl = Constants.LOGIN_BASE_URL + Constants.AUTH_URL + "?response_type=code&client_id=%s&redirect_uri=%s";
         authorizationUrl = String.format(authorizationUrl, Constants.CLIENT_ID, CALLBACK_URL);
 
         webView.setWebViewClient(new WebViewClient() {
@@ -72,7 +82,7 @@ public class SplashScreen extends Activity implements View.OnClickListener{
     }
 
     private void getAccessToken(String authCode) {
-        String accessTokenUrl = "https://runkeeper.com/apps/token?grant_type=authorization_code&code=%s&client_id=%s&client_secret=%s&redirect_uri=%s";
+        String accessTokenUrl = Constants.LOGIN_BASE_URL + Constants.ACCESS_TOKEN_URL + "?grant_type=authorization_code&code=%s&client_id=%s&client_secret=%s&redirect_uri=%s";
         final String finalUrl = String.format(accessTokenUrl, authCode, Constants.CLIENT_ID, Constants.CLIENT_SECRET, CALLBACK_URL);
 
         Thread networkThread = new Thread(new Runnable() {
@@ -88,7 +98,17 @@ public class SplashScreen extends Activity implements View.OnClickListener{
                     String jsonString = EntityUtils.toString(response.getEntity());
                     final JSONObject json = new JSONObject(jsonString);
 
+                    System.out.println(json);
                     String accessToken = json.getString("access_token");
+                    System.out.println("THIS IS THE ACCESS TOKEN " + accessToken);
+
+                    SharedPreferences sharedPref = getPreferences(Context.MODE_PRIVATE);
+                    SharedPreferences.Editor editor = sharedPref.edit();
+                    editor.putString(getString(R.string.access_token_key), accessToken);
+                    editor.apply();
+
+                    Intent i = new Intent(SplashScreen.this, DashboardDrawerActivity.class);
+                    startActivity(i);
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -105,7 +125,6 @@ public class SplashScreen extends Activity implements View.OnClickListener{
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                button.setVisibility(View.VISIBLE);
                 webView.setVisibility(View.GONE);
             }
         });
