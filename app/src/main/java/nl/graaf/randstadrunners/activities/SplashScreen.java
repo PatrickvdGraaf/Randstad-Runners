@@ -1,4 +1,4 @@
-package nl.graaf.randstadrunners.view;
+package nl.graaf.randstadrunners.activities;
 
 import android.app.Activity;
 import android.content.Context;
