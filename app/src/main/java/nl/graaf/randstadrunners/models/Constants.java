@@ -17,5 +17,6 @@ public class Constants {
     public static String INSIDION_BASE_URL = "";
 
     public static String BASE_URL = "api.runkeeper.com";
+    public static String FITNESS_URL = "/fitnessActivities";
     public static String USER_INFO_URL = "/user";
 }
